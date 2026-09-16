@@ -1,5 +1,17 @@
 # lab-devspaces-ansible-exercise3
 
+**Este ejercicio está pensado para realizarse dentro de OpenShift Dev Spaces.**
+
+Versiones de la imagen del laboratorio (compruébalas con `python3 --version`, `ansible --version`, `ansible-test --version`):
+
+| Herramienta | Versión en Dev Spaces |
+| ----------- | --------------------- |
+| Python | **3.12** (`python3.12`) |
+| ansible-core | **2.21.x** |
+| ansible-test | **2.21.x** |
+
+Los comandos de esta guía usan `--python 3.12`. Si `python3 --version` muestra otra, sustituye el número.
+
 ## ¿Qué es una colección de Ansible?
 
 Una **colección de Ansible** es un paquete versionado que agrupa contenido reutilizable bajo un **espacio de nombres** y un **nombre** (`namespace.nombre_coleccion`). Dentro puede convivir, entre otras cosas:
@@ -12,7 +24,9 @@ Las colecciones se publican en [Ansible Galaxy](https://galaxy.ansible.com/), se
 
 ## Objetivo de este laboratorio
 
-Este ejercicio está pensado sobre todo para **entender la estructura** de una colección de Ansible y cómo encajan el rol, el módulo, los tests y `ansible-test`. **No es imprescindible modificar el código** para sacar provecho del laboratorio: basta con recorrer el árbol de directorios, localizar cada pieza y ejecutar las herramientas de calidad que se indican más abajo.
+Entender la **estructura** de una colección y cómo encajan el rol, el módulo, los tests y `ansible-test`. Recorre el árbol, localiza cada pieza y **ejecuta** las herramientas de más abajo.
+
+**Criterio de hecho:** instalación de la colección, `sanity` (con `--exclude tests/output/`), `integration` y, si `units` falla por ansible-core 2.21, entender el motivo (apartado de units). El playbook de ejemplo debe poder lanzarse con las variables de integración.
 
 ## Contenido de `template-ansible-collection-develop`
 
@@ -29,7 +43,7 @@ En `roles/get_server_example_role/` hay un rol de ejemplo que:
 - Invoca el módulo de la colección `namespace_example.collection_example.get_servers` con variables (`example_username`, `example_password`, `example_url`, etc.).
 - Registra el resultado, muestra un `debug` y escribe la salida en un fichero de ejemplo.
 
-Sirve para ver **cómo un rol consume un módulo propio de la misma colección** usando el FQCN.
+Sirve para ver **cómo un rol consume un módulo propio de la misma colección** usando el FQCN. El rol **no** define `defaults/`: esas variables salen de `tests/integration/integration_config.yml` (o de `-e` al lanzar el playbook).
 
 ### Módulo y código de soporte (plugins)
 
@@ -45,15 +59,15 @@ En la documentación de Ansible, este tipo de ficheros en `plugins/modules/` sue
 
 ### Otras carpetas útiles para orientarse
 
-- `meta/runtime.yml`: versión de Ansible soportada (`requires_ansible`).
-- `playbooks/playbook.yml`: ejemplo de uso.
+- `meta/runtime.yml`: versión de Ansible soportada (`requires_ansible`). **En Dev Spaces hay ansible-core 2.21**; si el fichero limita a `<=2.19`, Galaxy y `ansible-doc` fallan. Debe quedar al menos `requires_ansible: ">=2.10"` (sin techo `2.19`).
+- `playbooks/playbook.yml`: ejemplo de uso (necesita las variables `example_*`; véase más abajo).
 - `tests/unit/`: pruebas unitarias (módulo y `module_utils`).
 - `tests/integration/targets/get_server/`: target de integración que ejercita el módulo.
-- `tests/output/`: salidas de ejecuciones anteriores (JUnit, informes de cobertura en `tests/output/reports/`); conviene conocerlas al revisar resultados en IDE o CI.
+- `tests/output/`: **restos de corridas anteriores** (JUnit, cobertura). No son tu resultado. Úsalos solo como ejemplo de informes; al pasar sanity, excluye este directorio.
 
 ## Entorno (OpenShift Dev Spaces)
 
-El fichero `devfile.yaml` define un workspace con la imagen **ansible-devspaces**, adecuada para ejecutar `ansible` y `ansible-test` sin instalar herramientas a mano en tu máquina local.
+El fichero `devfile.yaml` define un workspace con la imagen **ansible-devspaces**. No hace falta instalar Ansible a mano.
 
 ## Pruebas con `ansible-test` y cobertura
 
@@ -61,66 +75,110 @@ Todos los comandos siguientes deben ejecutarse **desde el directorio raíz de la
 
 ```bash
 cd template-ansible-collection-develop/ansible_collections/namespace_example/collection_example
+```
+
+### Instalar la colección
+
+Comprueba `meta/runtime.yml`. Si `requires_ansible` termina en `<=2.19`, cámbialo a `">=2.10"` y guarda: ansible-core **2.21.2** de Dev Spaces no cumple ese techo y `ansible-galaxy collection install` aborta.
+
+```bash
 ansible-galaxy collection install . -p ~/.ansible/collections --force
 ```
 
-Ajusta la versión de Python (`3.11`, etc.) a la disponible en el contenedor. El flag `--requirements` instala dependencias de test cuando haga falta.
+Si no puedes editar `runtime.yml`, crea un `ansible.cfg` en ese directorio:
+
+```ini
+[defaults]
+collections_on_ansible_version_mismatch = ignore
+```
+
+(`COLLECTIONS_ON_ANSIBLE_VERSION_MISMATCH` como variable de entorno **no basta** en ansible-core 2.21.)
+
+El flag `--requirements` de `ansible-test` instala dependencias de test cuando haga falta.
 
 ### Sanidad (`sanity`)
 
 Comprueba formato, sintaxis, documentación del módulo y otras comprobaciones estándar del ecosistema Ansible:
 
 ```bash
-ansible-test sanity -v --python 3.11 --requirements
+ansible-test sanity -v --python 3.12 --requirements --exclude tests/output/
 ```
 
-Para ignorar artefactos bajo `tests/output/` si molestan al analizador:
-
-```bash
-ansible-test sanity -v --python 3.11 --requirements --exclude tests/output/
-```
+Si falla el test `ansible-doc` con un WARNING *Collection … does not support Ansible version 2.21*, vuelve a `meta/runtime.yml` (mismo problema que Galaxy).
 
 ### Pruebas unitarias (`units`)
 
 Ejecuta los tests Python bajo `tests/unit/` (módulo `get_servers` y `module_utils`).
 
-En la imagen **ansible-devspaces**, el Python del sistema trae **pytest-ansible**, que rompe `ansible-test units` (rutas de colección con `:`). Además `ansible-test` **no reenvía** `PYTEST_ADDOPTS` al subproceso de pytest, y desinstalar paquetes del sistema a menudo falla (sin pip en `/usr/bin/python3` o sin permisos).
+En la imagen **ansible-devspaces**, el Python del sistema puede traer **pytest-ansible**, que rompe `ansible-test units` (rutas de colección con `:`). `ansible-test` **no reenvía** `PYTEST_ADDOPTS` al subproceso de pytest.
 
-**Solución recomendada:** usar **`--venv`**. `ansible-test` crea un virtualenv e instala solo las dependencias de `units` (pytest, xdist, mock, etc.); ahí **no** entra pytest-ansible de la imagen.
+**Solución recomendada:** usar **`--venv`**. `ansible-test` crea un virtualenv e instala solo las dependencias de `units`; ahí no entra pytest-ansible de la imagen.
 
 La colección declara en **`tests/unit/requirements.txt`** la dependencia **`requests`**: sin ella, `plugins/module_utils/haiinv.py` carga un stub vacío (`class Haiinv: pass`) y los tests del módulo fallan.
 
 ```bash
-ansible-test units --venv --python 3.11 --requirements --coverage
+ansible-test units --venv --python 3.12 --requirements --coverage
 ```
+
+**Nota ansible-core 2.21:** el helper `set_module_args` de `tests/unit/modules/commun_test.py` es el de versiones antiguas. En 2.21.x suele fallar con `No serialization profile was specified.` Los tests de `module_utils` pueden pasar y los del módulo no. No es un fallo de tu entorno: es la plantilla frente a 2.21. El laboratorio se da por bueno en units si entiendes ese mensaje y la integración (siguiente apartado) termina en código 0. Arreglar el helper es opcional (API nueva de `patch_module_args` / perfil de serialización).
 
 ### Pruebas de integración (`integration`)
 
-Ejecuta el target `get_server` y el resto de targets definidos bajo `tests/integration/`:
+Ejecuta el target `get_server` bajo `tests/integration/` (usa `tests/integration/integration_config.yml` y un JSON de ejemplo público):
 
 ```bash
-ansible-test integration --python 3.11 --requirements
+ansible-test integration --python 3.12 --requirements
 ```
 
-En muchos entornos hace falta privilegios para ciertos escenarios; si la documentación o el entorno lo requieren, se puede usar `sudo` delante del comando.
-
-Puedes combinar integración con recogida de cobertura (según versión de `ansible-test`):
+Puedes combinar integración con cobertura:
 
 ```bash
-ansible-test integration --python 3.11 --requirements --coverage
+ansible-test integration --python 3.12 --requirements --coverage
 ```
+
+El inventario de integración puede citar `python3.9`; `ansible-test --python 3.12` impone el intérprete de la corrida. No hace falta `sudo` en este target.
+
+### Playbook de ejemplo
+
+`playbooks/playbook.yml` incluye el rol pero **no** define `example_*`. Lánzalo con el fichero de integración:
+
+```bash
+ansible-playbook playbooks/playbook.yml -e @tests/integration/integration_config.yml
+```
+
+Sin `-e`, Ansible falla con variables indefinidas (`example_environment`, etc.).
 
 ### Informes de cobertura de código
 
-Tras ejecutar `units` o `integration` con `--coverage`, Ansible deja datos de cobertura que puedes **combinar y volcar** a informes legibles:
+Tras `units` o `integration` con `--coverage`:
 
 ```bash
-ansible-test coverage combine
-ansible-test coverage report
+ansible-test coverage combine --requirements
+ansible-test coverage report --requirements
 ansible-test coverage html --requirements
 ```
 
-El HTML resultante se puede abrir en el navegador para revisar **qué líneas del módulo y de `module_utils` están cubiertas** por los tests. En el repositorio ya hay un ejemplo de informe XML en `tests/output/reports/coverage.xml` de una corrida anterior.
+Sin `--requirements`, `ansible-test` puede pedir un módulo `coverage` concreto que no está en el Python del sistema. El HTML se abre en el navegador. En el repo hay un XML de ejemplo en `tests/output/reports/coverage.xml` de una corrida **anterior**; no lo uses como prueba de tu ejecución.
+
+## Resumen (checklist)
+
+| Paso | Acción |
+|------|--------|
+| 1 | Recorrer `plugins/`, `roles/`, `playbooks/`, `tests/`, `meta/runtime.yml`, `galaxy.yml`. |
+| 2 | Ajustar `requires_ansible` si limita a `<=2.19`. |
+| 3 | `ansible-galaxy collection install . -p ~/.ansible/collections --force` |
+| 4 | `ansible-test sanity --python 3.12 --requirements --exclude tests/output/` |
+| 5 | `ansible-test units --venv --python 3.12 --requirements --coverage` (ver nota 2.21). |
+| 6 | `ansible-test integration --python 3.12 --requirements` |
+| 7 | `ansible-playbook playbooks/playbook.yml -e @tests/integration/integration_config.yml` |
+| 8 | (Opcional) `ansible-test coverage combine/report/html --requirements` |
+
+## Resultado esperado
+
+- Sabes dónde viven el módulo, el rol, el playbook y los tests.
+- La colección se instala en `~/.ansible/collections` contra ansible-core 2.21.
+- `sanity` (excluyendo `tests/output/`) e `integration` terminan en código 0.
+- El playbook de ejemplo corre con las variables de `integration_config.yml`.
 
 ## Referencias
 
