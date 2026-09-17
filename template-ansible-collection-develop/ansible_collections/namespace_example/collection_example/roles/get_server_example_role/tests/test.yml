@@ -1,4 +1,6 @@
 ---
+# Leftover Galaxy scaffolding. Not part of the lab: it expects prueba-result.txt,
+# which is not shipped. Do not run this playbook.
 - name: Playing with Ansible and Git
   hosts: localhost
   connection: local

@@ -1,3 +1,2 @@
-pip==21.0.1
-setuptools==53.0.0
-setuptools_rust
+# Unused in the Dev Spaces lab. Do not pip install this file.
+# Kept so older CI snippets that reference it still find the path.

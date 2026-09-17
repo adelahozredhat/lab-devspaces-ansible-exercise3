@@ -12,11 +12,11 @@ from .commun_test import AnsibleFailJson, \
 
 def test_module_args_validation_enviroment(module_mock):
     set_module_args({
-        'username': str(os.environ.get('HAIINV_USER_TEST')),
-        'password': str(os.environ.get('HAIINV_PASSWORD_TEST')),
-        'url': str('https://adelahozredhat.github.io/json_rest_examples/prueba.json'),
-        'techgroups': str('lab_test_rh_1'),
-        'environment': str('previous')
+        'username': os.environ.get('HAIINV_USER_TEST') or '',
+        'password': os.environ.get('HAIINV_PASSWORD_TEST') or '',
+        'url': 'https://adelahozredhat.github.io/json_rest_examples/prueba.json',
+        'techgroups': ['lab_test_rh_1'],
+        'environment': 'previous'
     })
     with pytest.raises(AnsibleExitJson) as result:
         my_module.main()
@@ -26,9 +26,9 @@ def test_module_args_validation_enviroment(module_mock):
 
 def test_module_args_validation_enviroment_error(module_mock):
     set_module_args({
-        'username': str(os.environ.get('HAIINV_USER_TEST')),
-        'password': str(os.environ.get('HAIINV_PASSWORD_TEST')),
-        'url': str('https://adelahozredhat.github.io/json_rest_examples/prueba.json')
+        'username': os.environ.get('HAIINV_USER_TEST') or '',
+        'password': os.environ.get('HAIINV_PASSWORD_TEST') or '',
+        'url': 'https://adelahozredhat.github.io/json_rest_examples/prueba.json'
     })
     with pytest.raises(AnsibleFailJson) as result:
         my_module.main()

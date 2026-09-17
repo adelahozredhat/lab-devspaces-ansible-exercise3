@@ -19,7 +19,7 @@ def common_args():
         'password': 'BBBB',
         'url': 'localhost',
         'proxy': '',
-        'techgroups': 'lab_test_rh_1',
+        'techgroups': ['lab_test_rh_1'],
         'environment': 'previous'
     })
 
@@ -72,7 +72,7 @@ def test_module_args_validation_enviroment(module_mock):
         'password': 'BBBB',
         'url': 'localhost',
         'proxy': '',
-        'techgroups': 'lab_test_rh_1',
+        'techgroups': ['lab_test_rh_1'],
         'environment': 'I-SSO-ES-TS-TSBASE-FACTORY'
     })
     with mock.patch.object(

@@ -1,69 +1,60 @@
 # Ansible Collection - namespace_example.collection_example
 
-Collection with modules to query endpoints from _HAIINV_.
+Example collection with a module that queries a HAIINV-style JSON endpoint.
 
+## Modules
 
-Modules
--------
+| Name | Purpose |
+| :--- | :------ |
+| `namespace_example.collection_example.get_servers` | Get a list of servers with their hostvars |
 
-| Name                                | Purpose |
-| :----                               | :------ |
-| colection_example.get_servers              | Get a list servers with their hostvars using endpoint GET /inventory/ |
+## Installation
 
-Installation
-------------
+From the collection root (the directory that contains `galaxy.yml`):
 
-The namespace_example.collection_example collection can be installed locally on the Tower control node by using the
-following command:
-    ansible-galaxy collection install <tarball_name> -p <path>
-
-Where:
-
-* _<tarball_name>_ = an extract of the collection taken from this repository (in compressed tar format)
-* _<collections_path>_ = Directory where the collecion will be installed. (default: ~/.ansible/collections)
-
-**Note**: It's recommended to use one of the values configured in Ansible setting _COLLECTIONS_PATHS_ when using the -p
-option as this is where Ansible will expect to find collections.
-
-Examples:
-
-    ansible-galaxy collection namespace_example.collection_example -p ~/.ansible/collections
-
-or
-
-    ansible-galaxy collection namespace_example.collection_example -p /usr/share/ansible/collections
-
-Further details on installing
-collections [here](https://docs.ansible.com/ansible/latest/user_guide/collections_using.html#installing-collections)
-
-Using the collection
---------------------
-
-To use the modules of this collection in playbooks you must reference them via their fully qualified collection name (
-FQCN).
-
-    namespace_example.collection_example.<module_name>
-
-**Get Servers**
-
-```YML
-    ---
-      - hosts: all
-    tasks:
-      - name: "Example get information"
-        namespace_example.collection_example.get_servers:
-            username: "{{ example_username }}"
-            password: "{{ example_password }}"
-            url: "{{ example_url }}"
-            proxy: "{{ example_proxy }}"
-            techgroups: "{{ example_techgroups }}"
-            environment: "{{ example_environment }}"
+```bash
+ansible-galaxy collection install . -p ~/.ansible/collections --force
 ```
 
-Further details on using
-collections [here](https://docs.ansible.com/ansible/latest/user_guide/collections_using.html#using-collections-in-a-playbook)
+Galaxy copies the content into `~/.ansible/collections/ansible_collections/namespace_example/collection_example/`. After install you will see `MANIFEST.json` / `FILES.json` there, not `galaxy.yml`. Check with:
 
-Maintainers
------------
+```bash
+ansible-galaxy collection list | grep namespace_example
+```
+
+Do **not** `pip install -r requirements.txt` into the Dev Spaces system Python. Use `ansible-test ... --requirements` for tests.
+
+## Using the collection
+
+Reference modules with the FQCN:
+
+```yaml
+---
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Example get information
+      namespace_example.collection_example.get_servers:
+        username: "{{ example_username }}"
+        password: "{{ example_password }}"
+        url: "{{ example_url }}"
+        proxy: "{{ example_proxy }}"
+        techgroups: "{{ example_techgroups }}"
+        environment: "{{ example_environment }}"
+```
+
+`techgroups` is a **list**. In YAML you can pass a single item as:
+
+```yaml
+example_techgroups:
+  - lab_test_rh_1
+```
+
+A sample playbook lives in `playbooks/playbook.yml` (needs `-e @tests/integration/integration_config.yml`). The role writes `prueba.txt` next to that playbook (`playbook_dir`).
+
+Further details: [using collections](https://docs.ansible.com/ansible/latest/user_guide/collections_using.html).
+
+## Maintainers
 
 * Alejandro de la Hoz (adelahoz@redhat.com)

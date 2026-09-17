@@ -3,7 +3,7 @@ namespace: namespace_example
 name: collection_example
 readme: README.md
 authors:
-  - Alejandro de la Hoz<<adelahoz@redhat.com>
+  - Alejandro de la Hoz <adelahoz@redhat.com>
 description: Example modules
 license:
   - GPL-2.0-or-later
@@ -16,3 +16,11 @@ issues: http://example.com/issue/tracker
 version: 1.0.2
 tags:
   - linux
+build_ignore:
+  - .gitignore
+  - tests/output
+  - '**/__pycache__'
+  - '**/*.pyc'
+  - ansible-navigator.log
+  - playbooks/prueba.txt
+  - roles/get_server_example_role/tests/prueba.txt

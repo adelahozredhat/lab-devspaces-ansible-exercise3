@@ -17,5 +17,5 @@
 - name: Write info in a file
   ansible.builtin.copy:
     content: "{{ info_servers }}"
-    dest: prueba.txt
+    dest: "{{ playbook_dir }}/prueba.txt"
     mode: '0644'
